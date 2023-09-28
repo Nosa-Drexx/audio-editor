@@ -1,91 +1,197 @@
-import Image from 'next/image'
-import { Inter } from '@next/font/google'
-import styles from './page.module.css'
+"use client";
+// Regions plugin
 
-const inter = Inter({ subsets: ['latin'] })
+import { useEffect, useRef, useState } from "react";
+import WaveSurfer from "wavesurfer.js";
+import Regions from "wavesurfer.js/dist/plugins/regions";
+import Envelope from "wavesurfer.js/dist/plugins/envelope";
+import { cut, cut2 } from "src/utils/audioFn";
+// Create an instance of WaveSurfer
+
+// Loop a region on click
+var ws;
+var wsRegions;
+
+// Give regions a random color when they are created
+const random = (min, max) => Math.random() * (max - min) + min;
+const randomColor = () =>
+  `rgba(${random(0, 255)}, ${random(0, 255)}, ${random(0, 255)}, 0.5)`;
 
 export default function Home() {
+  const [loop, setLoop] = useState(true);
+  const waveForm = useRef(null);
+  const [range, setRange] = useState(0);
+  const [activeRegion, setActiveRegion] = useState(null);
+
+  useEffect(() => {
+    if (waveForm.current) {
+      ws = WaveSurfer.create({
+        container: waveForm.current,
+        waveColor: "rgb(200, 0, 200)",
+        progressColor: "rgb(100, 0, 100)",
+      });
+
+      fetch("/assets/audio/test-entry-voice.wav").then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP error, status = ${response.status}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        // Create a Blob providing as first argument a typed array with the file buffer
+        var blob = new window.Blob([new Uint8Array(arrayBuffer)]);
+
+        // Load the blob into Wavesurfer
+        ws.loadBlob(blob);
+        // return response.arrayBuffer();
+      });
+
+      // ws.load("");
+      ws.on("ready", function () {
+        ws.play();
+      });
+
+      const isMobile = top
+        ? top.matchMedia("(max-width: 900px)").matches
+        : true;
+      const envelope = ws.registerPlugin(
+        Envelope.create({
+          volume: 0.8,
+          lineColor: "rgba(255, 0, 0, 0.5)",
+          lineWidth: "4",
+          dragPointSize: isMobile ? 20 : 12,
+          dragLine: !isMobile,
+          dragPointFill: "rgba(0, 255, 255, 0.8)",
+          dragPointStroke: "rgba(0, 0, 0, 0.5)",
+
+          points: [
+            { time: 11.2, volume: 0.5 },
+            { time: 15.5, volume: 0.8 },
+          ],
+        })
+      );
+
+      // Initialize the Regions plugin
+      wsRegions = ws.registerPlugin(Regions.create());
+      // const isMobile = top.matchMedia('(max-width: 900px)').matches
+
+      // Create some regions at specific time ranges
+
+      wsRegions.addRegion({
+        start: 10,
+        end: 30,
+        content: "hwll",
+        color: "rgba(220, 31, 244, 0.5)",
+        drag: true,
+        resize: true,
+      });
+
+      wsRegions.enableDragSelection({
+        color: "red",
+      });
+
+      wsRegions.on("region-updated", (region) => {
+        // setActiveRegion(region);
+        console.log("Updated region", region);
+      });
+      // Toggle looping with a checkbox
+      {
+        var looped = loop;
+        document.querySelector(".loop-clip").onclick = (e) => {
+          looped = e.target.checked;
+        };
+
+        let activeRegionHolder: any = activeRegion;
+        wsRegions.on("region-in", (region) => {
+          setActiveRegion(region);
+        });
+        wsRegions.on("region-out", (region) => {
+          setActiveRegion(region);
+          if (activeRegionHolder === region) {
+            if (looped) {
+              region.play();
+            } else {
+              activeRegionHolder = null;
+              // setActiveRegion(null);
+            }
+          }
+        });
+        wsRegions.on("region-clicked", (region, e) => {
+          e.stopPropagation(); // prevent triggering a click on the waveform
+          activeRegionHolder = region;
+          setActiveRegion(region);
+          region.play();
+          region.setOptions({ color: randomColor() });
+        });
+        // Reset the active region when the user clicks anywhere in the waveform
+        ws.on("interaction", () => {
+          activeRegionHolder = null;
+          // setActiveRegion(null);
+        });
+      }
+    }
+  }, []);
+
+  //set zoom on initial render
+  useEffect(() => {
+    ws.on("ready", function () {
+      const minPxPerSec = Number(range);
+      ws.zoom(minPxPerSec);
+    });
+  }, [ws, range]);
+
+  // Update the zoom level on slider change
+  function handleRange(e) {
+    setRange(e.target.value);
+    const minPxPerSec = Number(e.target.value);
+    ws.zoom(minPxPerSec);
+  }
+
+  function handlePlay(e) {
+    if (ws) {
+      ws.playPause();
+    }
+  }
+  function handlePause(e) {
+    if (ws) {
+      ws.playPause();
+    }
+  }
+
+  function handleCut(e) {
+    if (activeRegion && ws) {
+      const cutOutObj = cut2(activeRegion, ws.getDecodedData());
+      console.log(cutOutObj);
+      ws.loadBlob(cutOutObj.newAudioBlob);
+    }
+  }
+
+  useEffect(() => {
+    console.log(activeRegion, "trial-active-reaion");
+  }, [activeRegion]);
+
   return (
-    <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{' '}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+    <div>
+      <div id="waveform" ref={waveForm}></div>
+      <input
+        type="checkbox"
+        checked={loop}
+        onChange={() => setLoop(!loop)}
+        className="loop-clip"
+      />
+      <label htmlFor="zoom">
+        <input
+          name="zoom"
+          id="zoom"
+          type="range"
+          value={range}
+          onChange={handleRange}
         />
-        <div className={styles.thirteen}>
-          <Image src="/thirteen.svg" alt="13" width={40} height={31} priority />
-        </div>
-      </div>
-
-      <div className={styles.grid}>
-        <a
-          href="https://beta.nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={inter.className}>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p className={inter.className}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={inter.className}>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p className={inter.className}>Explore the Next.js 13 playground.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={inter.className}>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p className={inter.className}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  )
+      </label>
+      <button onClick={handlePlay}>play</button>
+      <button onClick={handlePause}>Pause</button>
+      <button onClick={() => console.log(activeRegion)}>
+        show Active region
+      </button>
+      <button onClick={handleCut}>cut audio</button>
+    </div>
+  );
 }
