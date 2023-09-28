@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 import Regions from "wavesurfer.js/dist/plugins/regions";
 import Envelope from "wavesurfer.js/dist/plugins/envelope";
-import { cut, cut2 } from "src/utils/audioFn";
+import { cut2, removeRegion } from "src/utils/audioFn";
 // Create an instance of WaveSurfer
 
 // Loop a region on click
@@ -77,7 +77,7 @@ export default function Home() {
 
       wsRegions.addRegion({
         start: 10,
-        end: 64.0204542431507,
+        end: 64,
         content: "hwll",
         color: "rgba(220, 31, 244, 0.5)",
         drag: true,
@@ -163,6 +163,13 @@ export default function Home() {
       ws.loadBlob(cutOutObj.newAudioBlob);
     }
   }
+  function handleDelete(e) {
+    if (activeRegion && ws) {
+      const cutOutObj = removeRegion(activeRegion, ws.getDecodedData());
+      console.log(cutOutObj);
+      ws.loadBlob(cutOutObj.newAudioBlob);
+    }
+  }
 
   useEffect(() => {
     console.log(activeRegion, "trial-active-reaion");
@@ -192,6 +199,7 @@ export default function Home() {
         show Active region
       </button>
       <button onClick={handleCut}>cut audio</button>
+      <button onClick={handleDelete}>Delete Region</button>
     </div>
   );
 }
