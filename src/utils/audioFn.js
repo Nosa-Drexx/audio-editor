@@ -344,7 +344,7 @@ This function removes the selected region with leaving any empty space
   };
 }
 
-export function copy(region, instance) {
+export function copy(region, buffer) {
   // var selection = instance.getSelection();
 
   /*   var original_buffer = instance.backend.buffer;
@@ -373,8 +373,15 @@ export function copy(region, instance) {
   // var segmentDuration = instance.backend.buffer.duration;
   var segmentDuration = region.end - region.start;
 
-  var originalBuffer = instance.backend.buffer;
-  var emptySegment = instance.backend.ac.createBuffer(
+  var originalBuffer = buffer;
+
+  var offlineAudioContext = new OfflineAudioContext(
+    1,
+    2,
+    originalBuffer.sampleRate
+  );
+
+  var emptySegment = offlineAudioContext.createBuffer(
     originalBuffer.numberOfChannels,
     segmentDuration * originalBuffer.sampleRate,
     originalBuffer.sampleRate
@@ -403,7 +410,9 @@ export function copy(region, instance) {
     //playSound(abuffer);
     document.body.appendChild(audio);
     */
-  return emptySegment;
+
+  var arraybuffer = bufferToWave(emptySegment, 0, emptySegment.length); //Will create a new Blob with
+  return arraybuffer;
 }
 
 export function bufferToWave(abuffer, offset, len) {
