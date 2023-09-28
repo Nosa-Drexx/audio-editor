@@ -1,7 +1,3 @@
-const audiobufferToBlob = require("audiobuffer-to-blob");
-
-// assume 'audioBuffer' is a valid AudioBuffer instance
-
 export function paste(instance, cutSelection) {
   var offlineAudioContext = instance.backend.ac;
   var originalAudioBuffer = instance.backend.buffer;
@@ -48,135 +44,133 @@ export function paste(instance, cutSelection) {
   return newAudioBuffer;
 }
 
-export function cut(params, instance) {
-  /*
-    ---------------------------------------------
-    The function will take the buffer used to create the waveform and will
-    create
-    a new blob with the selected area from the original blob using the
-    offlineAudioContext
-  
-    */
+// export function cut(params, instance) {
+//   /*
+//     ---------------------------------------------
+//     The function will take the buffer used to create the waveform and will
+//     create
+//     a new blob with the selected area from the original blob using the
+//     offlineAudioContext
 
-  // var self = this;
-  var start = params.start;
-  var end = params.end;
+//     */
 
-  var originalAudioBuffer = instance.backend.buffer;
+//   // var self = this;
+//   var start = params.start;
+//   var end = params.end;
 
-  var lengthInSamples = Math.floor(
-    (end - start) * originalAudioBuffer.sampleRate
-  );
-  if (!window.OfflineAudioContext) {
-    if (!window.webkitOfflineAudioContext) {
-      // $('#output').append('failed : no audiocontext found, change browser');
-      alert("webkit context not found");
-    }
-    window.OfflineAudioContext = window.webkitOfflineAudioContext;
-  }
-  // var offlineAudioContext = new OfflineAudioContext(1, 2,originalAudioBuffer.sampleRate );
-  var offlineAudioContext = instance.backend.ac;
+//   var originalAudioBuffer = instance.backend.buffer;
 
-  var emptySegment = offlineAudioContext.createBuffer(
-    originalAudioBuffer.numberOfChannels,
-    lengthInSamples,
-    originalAudioBuffer.sampleRate
-  );
+//   var lengthInSamples = Math.floor(
+//     (end - start) * originalAudioBuffer.sampleRate
+//   );
+//   if (!window.OfflineAudioContext) {
+//     if (!window.webkitOfflineAudioContext) {
+//       // $('#output').append('failed : no audiocontext found, change browser');
+//       alert("webkit context not found");
+//     }
+//     window.OfflineAudioContext = window.webkitOfflineAudioContext;
+//   }
+//   // var offlineAudioContext = new OfflineAudioContext(1, 2,originalAudioBuffer.sampleRate );
+//   var offlineAudioContext = instance.backend.ac;
 
-  var newAudioBuffer = offlineAudioContext.createBuffer(
-    originalAudioBuffer.numberOfChannels,
-    start === 0
-      ? originalAudioBuffer.length - emptySegment.length
-      : originalAudioBuffer.length,
-    originalAudioBuffer.sampleRate
-  );
+//   var emptySegment = offlineAudioContext.createBuffer(
+//     originalAudioBuffer.numberOfChannels,
+//     lengthInSamples,
+//     originalAudioBuffer.sampleRate
+//   );
 
-  for (
-    var channel = 0;
-    channel < originalAudioBuffer.numberOfChannels;
-    channel++
-  ) {
-    var new_channel_data = newAudioBuffer.getChannelData(channel);
-    var empty_segment_data = emptySegment.getChannelData(channel);
-    var original_channel_data = originalAudioBuffer.getChannelData(channel);
+//   var newAudioBuffer = offlineAudioContext.createBuffer(
+//     originalAudioBuffer.numberOfChannels,
+//     start === 0
+//       ? originalAudioBuffer.length - emptySegment.length
+//       : originalAudioBuffer.length,
+//     originalAudioBuffer.sampleRate
+//   );
 
-    var before_data = original_channel_data.subarray(
-      0,
-      start * originalAudioBuffer.sampleRate
-    );
-    var mid_data = original_channel_data.subarray(
-      start * originalAudioBuffer.sampleRate,
-      end * originalAudioBuffer.sampleRate
-    );
-    var after_data = original_channel_data.subarray(
-      Math.floor(end * originalAudioBuffer.sampleRate),
-      originalAudioBuffer.length * originalAudioBuffer.sampleRate
-    );
+//   for (
+//     var channel = 0;
+//     channel < originalAudioBuffer.numberOfChannels;
+//     channel++
+//   ) {
+//     var new_channel_data = newAudioBuffer.getChannelData(channel);
+//     var empty_segment_data = emptySegment.getChannelData(channel);
+//     var original_channel_data = originalAudioBuffer.getChannelData(channel);
 
-    empty_segment_data.set(mid_data);
-    // this.cutSelection = emptySegment
-    if (start > 0) {
-      new_channel_data.set(before_data);
-      // new_channel_data.set(empty_segment_data,(start * newAudioBuffer.sampleRate));
-      // new_channel_data.set(after_data,(end * newAudioBuffer.sampleRate));
-      new_channel_data.set(after_data, start * newAudioBuffer.sampleRate);
-    } else {
-      new_channel_data.set(after_data);
-    }
-  }
-  return {
-    newAudioBuffer,
-    cutSelection: emptySegment,
-  };
-  /*    instance.loadDecodedBuffer(newAudioBuffer);
-        // instance.loadDecodedBuffer(emptySegment);
-  
-        // var arraybuffer = this.bufferToWave(newAudioBuffer,0,newAudioBuffer.length);//Will create a new Blob with
-        var arraybuffer = this.bufferToWave(emptySegment,0,emptySegment.length);//Will create a new Blob with
-        let url = URL.createObjectURL(arraybuffer)
-        debugger
-  
-  
-    /!*    // Make it downloadable
-        var download_link = document.getElementById("download_link");
-        download_link.href = new_file;
-        var name = generateFileName();
-        download_link.download = name;
-  
-        // Utility to add "compressed" to the uploaded file's name
-        function generateFileName() {
-          var origin_name = fileInput.files[0].name;
-          var pos = origin_name.lastIndexOf('.');
-          var no_ext = origin_name.slice(0, pos);
-  
-          return no_ext + ".compressed.wav";
-        }*!/
-  
-  
-        var audio = new Audio(url);
-        audio.controls = true;
-        audio.volume = 0.5;
-        audio.autoplay = true;
-        //playSound(abuffer);
-        document.body.appendChild(audio);
-        // return (new Blob([arraybuffer], { type : 'audio/wav'}));
-        return emptySegment*/
-}
+//     var before_data = original_channel_data.subarray(
+//       0,
+//       start * originalAudioBuffer.sampleRate
+//     );
+//     var mid_data = original_channel_data.subarray(
+//       start * originalAudioBuffer.sampleRate,
+//       end * originalAudioBuffer.sampleRate
+//     );
+//     var after_data = original_channel_data.subarray(
+//       Math.floor(end * originalAudioBuffer.sampleRate),
+//       originalAudioBuffer.length * originalAudioBuffer.sampleRate
+//     );
+
+//     empty_segment_data.set(mid_data);
+//     // this.cutSelection = emptySegment
+//     if (start > 0) {
+//       new_channel_data.set(before_data);
+//       // new_channel_data.set(empty_segment_data,(start * newAudioBuffer.sampleRate));
+//       // new_channel_data.set(after_data,(end * newAudioBuffer.sampleRate));
+//       new_channel_data.set(after_data, start * newAudioBuffer.sampleRate);
+//     } else {
+//       new_channel_data.set(after_data);
+//     }
+//   }
+//   return {
+//     newAudioBuffer,
+//     cutSelection: emptySegment,
+//   };
+//   /*    instance.loadDecodedBuffer(newAudioBuffer);
+//         // instance.loadDecodedBuffer(emptySegment);
+
+//         // var arraybuffer = this.bufferToWave(newAudioBuffer,0,newAudioBuffer.length);//Will create a new Blob with
+//         var arraybuffer = this.bufferToWave(emptySegment,0,emptySegment.length);//Will create a new Blob with
+//         let url = URL.createObjectURL(arraybuffer)
+//         debugger
+
+//     /!*    // Make it downloadable
+//         var download_link = document.getElementById("download_link");
+//         download_link.href = new_file;
+//         var name = generateFileName();
+//         download_link.download = name;
+
+//         // Utility to add "compressed" to the uploaded file's name
+//         function generateFileName() {
+//           var origin_name = fileInput.files[0].name;
+//           var pos = origin_name.lastIndexOf('.');
+//           var no_ext = origin_name.slice(0, pos);
+
+//           return no_ext + ".compressed.wav";
+//         }*!/
+
+//         var audio = new Audio(url);
+//         audio.controls = true;
+//         audio.volume = 0.5;
+//         audio.autoplay = true;
+//         //playSound(abuffer);
+//         document.body.appendChild(audio);
+//         // return (new Blob([arraybuffer], { type : 'audio/wav'}));
+//         return emptySegment*/
+// }
 
 export function cut2(params, buffer) {
   /*
- EXTRACTED FROM A PRIVATE PROJECT
-IF YOU NEED MORE INFO LET ME KNOW:
 
-allan.naranjo@gmail.com
 ---------------------------------------------
-This method works with wavesurfer.
+This function works with wavesurfer.
 Make a selection, using wavesurfer api take the start and end.
 ---------------------------------------------
 The function will take the buffer used to create the waveform and will
 create
 a new blob with the selected area from the original blob using the
 offlineAudioContext
+
+-------------------------------------------
+This function removes the selected region  leaving  empty space in region in case of paste
 
 */
 
@@ -248,14 +242,105 @@ offlineAudioContext
   }
 
   var arraybuffer = bufferToWave(newAudioBuffer, 0, newAudioBuffer.length); //Will create a new Blob with the IntArray...
-  var cutRegion = buffer2wav(emptySegment);
-
-  // const blob = audiobufferToBlob(newAudioBuffer);
-  // console.log(blob, "hi");
+  var cutRegion = bufferToWave(emptySegment, 0, emptySegment.length);
 
   return {
     newAudioBlob: arraybuffer,
-    cutSelection: new Blob([cutRegion], { type: "audio/wav" }),
+    cutSelection: cutRegion,
+  };
+}
+
+export function removeRegion(params, buffer) {
+  /*
+---------------------------------------------
+This function works with wavesurfer.
+Make a selection, using wavesurfer api take the start and end.
+---------------------------------------------
+The function will take the buffer used to create the waveform and will
+create
+a new blob with the selected area from the original blob using the
+offlineAudioContext
+
+-------------------------------------------
+This function removes the selected region with leaving any empty space
+
+*/
+
+  var self = this;
+  var start = params.start;
+  var end = params.end;
+
+  var originalAudioBuffer;
+
+  originalAudioBuffer = buffer;
+
+  var lengthInSamples = Math.floor(
+    (end - start) * originalAudioBuffer.sampleRate
+  );
+
+  var offlineAudioContext = new OfflineAudioContext(
+    1,
+    2,
+    originalAudioBuffer.sampleRate
+  );
+  var new_channel_data,
+    empty_segment_data,
+    original_channel_data,
+    before_data,
+    after_data;
+
+  var emptySegment = offlineAudioContext.createBuffer(
+    originalAudioBuffer.numberOfChannels,
+    lengthInSamples,
+    originalAudioBuffer.sampleRate
+  );
+
+  var newAudioBuffer = offlineAudioContext.createBuffer(
+    originalAudioBuffer.numberOfChannels,
+    // start === 0?
+    originalAudioBuffer.length - emptySegment.length,
+    // : originalAudioBuffer.length,
+    originalAudioBuffer.sampleRate
+  );
+
+  for (
+    var channel = 0;
+    channel < originalAudioBuffer.numberOfChannels;
+    channel++
+  ) {
+    new_channel_data = newAudioBuffer.getChannelData(channel);
+    empty_segment_data = emptySegment.getChannelData(channel);
+    original_channel_data = originalAudioBuffer.getChannelData(channel);
+
+    before_data = original_channel_data.subarray(
+      0,
+      start * originalAudioBuffer.sampleRate
+    );
+    after_data = original_channel_data.subarray(
+      Math.floor(end * originalAudioBuffer.sampleRate),
+      originalAudioBuffer.length * originalAudioBuffer.sampleRate
+    );
+
+    if (start > 0) {
+      new_channel_data.set(before_data);
+      new_channel_data.set(
+        empty_segment_data,
+        start * newAudioBuffer.sampleRate
+      );
+      //prevent empty white space
+      new_channel_data.set(after_data, start * newAudioBuffer.sampleRate);
+      // new_channel_data.set(after_data, end * newAudioBuffer.sampleRate);
+    } else {
+      new_channel_data.set(after_data);
+    }
+  }
+
+  var arraybuffer = bufferToWave(newAudioBuffer, 0, newAudioBuffer.length); //Will create a new Blob with the IntArray...
+  var cutRegion = bufferToWave(emptySegment, 0, emptySegment.length);
+
+  return {
+    newAudioBlob: arraybuffer,
+    cutSelection: cutRegion,
   };
 }
 
@@ -377,97 +462,97 @@ export function bufferToWave(abuffer, offset, len) {
   }
 }
 
-export function buffer2wav(audioBuffer) {
-  const [left, right] = [
-    audioBuffer.getChannelData(0),
-    audioBuffer.getChannelData(1),
-  ];
+// export function buffer2wav(audioBuffer) {
+//   const [left, right] = [
+//     audioBuffer.getChannelData(0),
+//     audioBuffer.getChannelData(1),
+//   ];
 
-  // interleaved
-  const interleaved = new Float32Array(left.length + right.length);
-  for (let src = 0, dst = 0; src < left.length; src++, dst += 2) {
-    interleaved[dst] = left[src];
-    interleaved[dst + 1] = right[src];
-  }
+//   // interleaved
+//   const interleaved = new Float32Array(left.length + right.length);
+//   for (let src = 0, dst = 0; src < left.length; src++, dst += 2) {
+//     interleaved[dst] = left[src];
+//     interleaved[dst + 1] = right[src];
+//   }
 
-  // get WAV file bytes and audio params of your audio source
-  const wavBytes = getWavBytes(interleaved.buffer, {
-    isFloat: true, // floating point or 16-bit integer
-    numChannels: 2,
-    sampleRate: 48000,
-  });
+//   // get WAV file bytes and audio params of your audio source
+//   const wavBytes = getWavBytes(interleaved.buffer, {
+//     isFloat: true, // floating point or 16-bit integer
+//     numChannels: 2,
+//     sampleRate: 48000,
+//   });
 
-  return wavBytes;
-  // const wav = new Blob([wavBytes], { type: "audio/wav" });
+//   return wavBytes;
+//   // const wav = new Blob([wavBytes], { type: "audio/wav" });
 
-  // // create download link and append to Dom
-  // const downloadLink = document.createElement("a");
-  // downloadLink.href = URL.createObjectURL(wav);
-  // downloadLink.setAttribute("download", "my-audio.wav");
-}
+//   // // create download link and append to Dom
+//   // const downloadLink = document.createElement("a");
+//   // downloadLink.href = URL.createObjectURL(wav);
+//   // downloadLink.setAttribute("download", "my-audio.wav");
+// }
 
-export function getWavBytes(buffer, options) {
-  const type = options.isFloat ? Float32Array : Uint16Array;
-  const numFrames = buffer.byteLength / type.BYTES_PER_ELEMENT;
+// export function getWavBytes(buffer, options) {
+//   const type = options.isFloat ? Float32Array : Uint16Array;
+//   const numFrames = buffer.byteLength / type.BYTES_PER_ELEMENT;
 
-  const headerBytes = getWavHeader(Object.assign({}, options, { numFrames }));
-  const wavBytes = new Uint8Array(headerBytes.length + buffer.byteLength);
+//   const headerBytes = getWavHeader(Object.assign({}, options, { numFrames }));
+//   const wavBytes = new Uint8Array(headerBytes.length + buffer.byteLength);
 
-  // prepend header, then add pcmBytes
-  wavBytes.set(headerBytes, 0);
-  wavBytes.set(new Uint8Array(buffer), headerBytes.length);
+//   // prepend header, then add pcmBytes
+//   wavBytes.set(headerBytes, 0);
+//   wavBytes.set(new Uint8Array(buffer), headerBytes.length);
 
-  return wavBytes;
-}
+//   return wavBytes;
+// }
 
-// adapted from https://gist.github.com/also/900023
-// returns Uint8Array of WAV header bytes
-export function getWavHeader(options) {
-  const numFrames = options.numFrames;
-  const numChannels = options.numChannels || 2;
-  const sampleRate = options.sampleRate || 44100;
-  const bytesPerSample = options.isFloat ? 4 : 2;
-  const format = options.isFloat ? 3 : 1;
+// // adapted from https://gist.github.com/also/900023
+// // returns Uint8Array of WAV header bytes
+// export function getWavHeader(options) {
+//   const numFrames = options.numFrames;
+//   const numChannels = options.numChannels || 2;
+//   const sampleRate = options.sampleRate || 44100;
+//   const bytesPerSample = options.isFloat ? 4 : 2;
+//   const format = options.isFloat ? 3 : 1;
 
-  const blockAlign = numChannels * bytesPerSample;
-  const byteRate = sampleRate * blockAlign;
-  const dataSize = numFrames * blockAlign;
+//   const blockAlign = numChannels * bytesPerSample;
+//   const byteRate = sampleRate * blockAlign;
+//   const dataSize = numFrames * blockAlign;
 
-  const buffer = new ArrayBuffer(44);
-  const dv = new DataView(buffer);
+//   const buffer = new ArrayBuffer(44);
+//   const dv = new DataView(buffer);
 
-  let p = 0;
+//   let p = 0;
 
-  function writeString(s) {
-    for (let i = 0; i < s.length; i++) {
-      dv.setUint8(p + i, s.charCodeAt(i));
-    }
-    p += s.length;
-  }
+//   function writeString(s) {
+//     for (let i = 0; i < s.length; i++) {
+//       dv.setUint8(p + i, s.charCodeAt(i));
+//     }
+//     p += s.length;
+//   }
 
-  function writeUint32(d) {
-    dv.setUint32(p, d, true);
-    p += 4;
-  }
+//   function writeUint32(d) {
+//     dv.setUint32(p, d, true);
+//     p += 4;
+//   }
 
-  function writeUint16(d) {
-    dv.setUint16(p, d, true);
-    p += 2;
-  }
+//   function writeUint16(d) {
+//     dv.setUint16(p, d, true);
+//     p += 2;
+//   }
 
-  writeString("RIFF"); // ChunkID
-  writeUint32(dataSize + 36); // ChunkSize
-  writeString("WAVE"); // Format
-  writeString("fmt "); // Subchunk1ID
-  writeUint32(16); // Subchunk1Size
-  writeUint16(format); // AudioFormat https://i.stack.imgur.com/BuSmb.png
-  writeUint16(numChannels); // NumChannels
-  writeUint32(sampleRate); // SampleRate
-  writeUint32(byteRate); // ByteRate
-  writeUint16(blockAlign); // BlockAlign
-  writeUint16(bytesPerSample * 8); // BitsPerSample
-  writeString("data"); // Subchunk2ID
-  writeUint32(dataSize); // Subchunk2Size
+//   writeString("RIFF"); // ChunkID
+//   writeUint32(dataSize + 36); // ChunkSize
+//   writeString("WAVE"); // Format
+//   writeString("fmt "); // Subchunk1ID
+//   writeUint32(16); // Subchunk1Size
+//   writeUint16(format); // AudioFormat https://i.stack.imgur.com/BuSmb.png
+//   writeUint16(numChannels); // NumChannels
+//   writeUint32(sampleRate); // SampleRate
+//   writeUint32(byteRate); // ByteRate
+//   writeUint16(blockAlign); // BlockAlign
+//   writeUint16(bytesPerSample * 8); // BitsPerSample
+//   writeString("data"); // Subchunk2ID
+//   writeUint32(dataSize); // Subchunk2Size
 
-  return new Uint8Array(buffer);
-}
+//   return new Uint8Array(buffer);
+// }

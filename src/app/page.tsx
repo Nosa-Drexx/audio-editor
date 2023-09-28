@@ -77,7 +77,7 @@ export default function Home() {
 
       wsRegions.addRegion({
         start: 10,
-        end: 30,
+        end: 64.0204542431507,
         content: "hwll",
         color: "rgba(220, 31, 244, 0.5)",
         drag: true,
