@@ -1,11 +1,11 @@
 "use client";
 // Regions plugin
 
-import { useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 import Regions from "wavesurfer.js/dist/plugins/regions";
 import Envelope from "wavesurfer.js/dist/plugins/envelope";
-import { copy, cut2, removeRegion } from "src/utils/audioFn";
+import { copy, copyBuffer, cut2, paste, removeRegion } from "src/utils/audioFn";
 // Create an instance of WaveSurfer
 
 // Loop a region on click
@@ -22,6 +22,8 @@ export default function Home() {
   const waveForm = useRef(null);
   const [range, setRange] = useState(0);
   const [activeRegion, setActiveRegion] = useState(null);
+  const [removedFromAudio, setRemovedFromAudio] = useState();
+  const [cutEpisodes, setCutEpisodes] = useState([]);
 
   useEffect(() => {
     if (waveForm.current) {
@@ -76,8 +78,8 @@ export default function Home() {
       // Create some regions at specific time ranges
 
       wsRegions.addRegion({
-        start: 10,
-        end: 64,
+        start: 80.45,
+        end: 134.45,
         content: "hwll",
         color: "rgba(220, 31, 244, 0.5)",
         drag: true,
@@ -159,24 +161,63 @@ export default function Home() {
   function handleCut(e) {
     if (activeRegion && ws) {
       const cutOutObj = cut2(activeRegion, ws.getDecodedData());
-      console.log(cutOutObj);
+      const removedRegion = cutOutObj.cutSelectionBuffer;
+      // console.log(cutOutObj);
+      setRemovedFromAudio(removedRegion);
+      setCutEpisodes((prev) => [
+        ...prev,
+        {
+          cutBuffer: cutOutObj.cutSelectionBuffer,
+          cutBlob: cutOutObj.cutSelectionBlob,
+        },
+      ]);
       ws.loadBlob(cutOutObj.newAudioBlob);
     }
   }
   function handleDelete(e) {
     if (activeRegion && ws) {
       const cutOutObj = removeRegion(activeRegion, ws.getDecodedData());
-      console.log(cutOutObj);
+      console.log(cutOutObj.cutSelectionBlob);
       ws.loadBlob(cutOutObj.newAudioBlob);
     }
   }
   function handleCopy(e) {
     if (activeRegion && ws) {
-      const copiedRegion = copy(activeRegion, ws.getDecodedData());
-      console.log(copiedRegion);
-      ws.loadBlob(copiedRegion);
+      const copiedRegion = copyBuffer(ws.getDecodedData(), activeRegion);
+      // console.log(copiedRegion);
+      // ws.loadBlob(copiedRegion);
     }
   }
+  function handlePaste(e) {
+    if (activeRegion && ws) {
+      console.log(removedFromAudio);
+      const pasted = paste(
+        ws.getDecodedData(),
+        removedFromAudio,
+        activeRegion.start,
+        activeRegion.end
+      );
+      // console.log(pasted);
+      ws.loadBlob(pasted);
+    }
+  }
+
+  useEffect(() => {
+    cutEpisodes.map((episodesObj, index) => {
+      if (cutEpisodes.length > 0) {
+        const WaveContainer = document.createElement("div");
+        const cutWaves = WaveSurfer.create({
+          container: WaveContainer,
+          waveColor: "rgb(200, 0, 200)",
+          progressColor: "rgb(100, 0, 100)",
+        });
+
+        cutWaves.loadBlob(episodesObj.cutBlob);
+
+        document.querySelector(`.wave-container`)?.appendChild(WaveContainer);
+      }
+    });
+  }, [cutEpisodes]);
 
   useEffect(() => {
     console.log(activeRegion, "trial-active-reaion");
@@ -208,6 +249,12 @@ export default function Home() {
       <button onClick={handleCut}>cut audio</button>
       <button onClick={handleDelete}>Delete Region</button>
       <button onClick={handleCopy}>Copy Region</button>
+      <button onClick={handlePaste}>Paste</button>
+
+      <div>
+        <h1>Cut Episodes</h1>
+        <div className="wave-container"></div>
+      </div>
     </div>
   );
 }

@@ -1,11 +1,16 @@
-export function paste(instance, cutSelection) {
-  var offlineAudioContext = instance.backend.ac;
-  var originalAudioBuffer = instance.backend.buffer;
+export function paste(buffer, cutSelection, position, endPosition) {
+  var originalAudioBuffer = buffer;
+  var offlineAudioContext = new OfflineAudioContext(
+    1,
+    2,
+    originalAudioBuffer.sampleRate
+  );
 
-  let cursorPosition = instance.getCurrentTime();
+  let cursorPosition = position;
   var newAudioBuffer = offlineAudioContext.createBuffer(
     originalAudioBuffer.numberOfChannels,
-    originalAudioBuffer.length + cutSelection.length,
+    // originalAudioBuffer.length + cutSelection.length,
+    originalAudioBuffer.length,
     originalAudioBuffer.sampleRate
   );
 
@@ -23,16 +28,28 @@ export function paste(instance, cutSelection) {
       cursorPosition * originalAudioBuffer.sampleRate
     );
     var mid_data = empty_segment_data;
+    // var after_data = original_channel_data.subarray(
+    //   Math.floor(cursorPosition * originalAudioBuffer.sampleRate),
+    //   originalAudioBuffer.length * originalAudioBuffer.sampleRate
+    // );
     var after_data = original_channel_data.subarray(
-      Math.floor(cursorPosition * originalAudioBuffer.sampleRate),
+      Math.floor(endPosition * originalAudioBuffer.sampleRate),
       originalAudioBuffer.length * originalAudioBuffer.sampleRate
     );
 
     // if(start > 0){
+
     new_channel_data.set(before_data);
+    //Fake
     // new_channel_data.set(empty_segment_data,(cursorPosition * newAudioBuffer.sampleRate));
     new_channel_data.set(mid_data, cursorPosition * newAudioBuffer.sampleRate);
-    // new_channel_data.set(after_data,(cutSelection.length * newAudioBuffer.sampleRate));
+    // new_channel_data.set(
+    //   after_data,
+    //   cutSelection.length * newAudioBuffer.sampleRate
+    // );
+    // console.log(cutSelection.length, "length");
+    // console.log(cursorPosition + cutSelection.duration, "duration");
+    // //real
     new_channel_data.set(
       after_data,
       (cursorPosition + cutSelection.duration) * newAudioBuffer.sampleRate
@@ -41,7 +58,8 @@ export function paste(instance, cutSelection) {
     //   new_channel_data.set(after_data);
     // }
   }
-  return newAudioBuffer;
+  var arraybuffer = bufferToWave(newAudioBuffer, 0, newAudioBuffer.length);
+  return arraybuffer;
 }
 
 // export function cut(params, instance) {
@@ -244,9 +262,13 @@ This function removes the selected region  leaving  empty space in region in cas
   var arraybuffer = bufferToWave(newAudioBuffer, 0, newAudioBuffer.length); //Will create a new Blob with the IntArray...
   var cutRegion = bufferToWave(emptySegment, 0, emptySegment.length);
 
+  var getRegionRemoved = copyBuffer(buffer, params);
+
   return {
     newAudioBlob: arraybuffer,
-    cutSelection: cutRegion,
+    cutSelectionBlob: getRegionRemoved.copiedRegionBlob,
+    cutSelectionBuffer: getRegionRemoved.copiedRegionBuffer,
+    newAudioBuffer: newAudioBuffer,
   };
 }
 
@@ -340,80 +362,82 @@ This function removes the selected region with leaving any empty space
 
   return {
     newAudioBlob: arraybuffer,
-    cutSelection: cutRegion,
+    cutSelectionBlob: cutRegion,
+    cutSelectionBuffer: emptySegment,
+    newAudioBuffer: newAudioBuffer,
   };
 }
 
-export function copy(region, buffer) {
-  // var selection = instance.getSelection();
+// export function copy(region, buffer) {
+//   // var selection = instance.getSelection();
 
-  /*   var original_buffer = instance.backend.buffer;
-       var new_buffer = instance.backend.ac.createBuffer(original_buffer.numberOfChannels, original_buffer.length, original_buffer.sampleRate);
-  
-       var first_list_index = (selection.startPosition * original_buffer.sampleRate);
-       var second_list_index = (selection.endPosition * original_buffer.sampleRate);
-       var second_list_mem_alloc = (original_buffer.length - (selection.endPosition * original_buffer.sampleRate));
-  
-       var new_list = new Float32Array(parseInt(first_list_index));
-       var second_list = new Float32Array(parseInt(second_list_mem_alloc));
-       var combined = new Float32Array(original_buffer.length);
-  
-       original_buffer.copyFromChannel(new_list, 0);
-       original_buffer.copyFromChannel(second_list, 0, second_list_index)
-  
-       combined.set(new_list)
-       combined.set(second_list, first_list_index)
-  
-       new_buffer.copyToChannel(combined, 0);
-  
-       instance.loadDecodedBuffer(new_buffer);*/
-  // }else{
-  //   console.log('did not find selection')
-  // }*/
-  // var segmentDuration = instance.backend.buffer.duration;
-  var segmentDuration = region.end - region.start;
+//   /*   var original_buffer = instance.backend.buffer;
+//        var new_buffer = instance.backend.ac.createBuffer(original_buffer.numberOfChannels, original_buffer.length, original_buffer.sampleRate);
 
-  var originalBuffer = buffer;
+//        var first_list_index = (selection.startPosition * original_buffer.sampleRate);
+//        var second_list_index = (selection.endPosition * original_buffer.sampleRate);
+//        var second_list_mem_alloc = (original_buffer.length - (selection.endPosition * original_buffer.sampleRate));
 
-  var offlineAudioContext = new OfflineAudioContext(
-    1,
-    2,
-    originalBuffer.sampleRate
-  );
+//        var new_list = new Float32Array(parseInt(first_list_index));
+//        var second_list = new Float32Array(parseInt(second_list_mem_alloc));
+//        var combined = new Float32Array(original_buffer.length);
 
-  var emptySegment = offlineAudioContext.createBuffer(
-    originalBuffer.numberOfChannels,
-    segmentDuration * originalBuffer.sampleRate,
-    originalBuffer.sampleRate
-  );
-  for (var i = 0; i < originalBuffer.numberOfChannels; i++) {
-    var chanData = originalBuffer.getChannelData(i);
-    var emptySegmentData = emptySegment.getChannelData(i);
-    var mid_data = chanData.subarray(
-      region.start * originalBuffer.sampleRate,
-      region.end * originalBuffer.sampleRate
-    );
-    emptySegmentData.set(mid_data);
-  }
-  /*// this.cutSelection = emptySegment
-    // emptySegment; // Here you go! Not empty anymore, contains a copy of the segment!
-    // instance.loadDecodedBuffer(emptySegment);
-  
-    var arraybuffer = this.bufferToWave(emptySegment,0,emptySegment.length);//Will create a new Blob with
-    let url = URL.createObjectURL(arraybuffer)
-    debugger
-  
-    var audio = new Audio(url);
-    audio.controls = true;
-    audio.volume = 0.5;
-    audio.autoplay = true;
-    //playSound(abuffer);
-    document.body.appendChild(audio);
-    */
+//        original_buffer.copyFromChannel(new_list, 0);
+//        original_buffer.copyFromChannel(second_list, 0, second_list_index)
 
-  var arraybuffer = bufferToWave(emptySegment, 0, emptySegment.length); //Will create a new Blob with
-  return arraybuffer;
-}
+//        combined.set(new_list)
+//        combined.set(second_list, first_list_index)
+
+//        new_buffer.copyToChannel(combined, 0);
+
+//        instance.loadDecodedBuffer(new_buffer);*/
+//   // }else{
+//   //   console.log('did not find selection')
+//   // }*/
+//   // var segmentDuration = instance.backend.buffer.duration;
+//   var segmentDuration = region.end - region.start;
+
+//   var originalBuffer = buffer;
+
+//   var offlineAudioContext = new OfflineAudioContext(
+//     1,
+//     2,
+//     originalBuffer.sampleRate
+//   );
+
+//   var emptySegment = offlineAudioContext.createBuffer(
+//     originalBuffer.numberOfChannels,
+//     segmentDuration * originalBuffer.sampleRate,
+//     originalBuffer.sampleRate
+//   );
+//   for (var i = 0; i < originalBuffer.numberOfChannels; i++) {
+//     var chanData = originalBuffer.getChannelData(i);
+//     var emptySegmentData = emptySegment.getChannelData(i);
+//     var mid_data = chanData.subarray(
+//       region.start * originalBuffer.sampleRate,
+//       region.end * originalBuffer.sampleRate
+//     );
+//     emptySegmentData.set(mid_data);
+//   }
+//   /*// this.cutSelection = emptySegment
+//     // emptySegment; // Here you go! Not empty anymore, contains a copy of the segment!
+//     // instance.loadDecodedBuffer(emptySegment);
+
+//     var arraybuffer = this.bufferToWave(emptySegment,0,emptySegment.length);//Will create a new Blob with
+//     let url = URL.createObjectURL(arraybuffer)
+//     debugger
+
+//     var audio = new Audio(url);
+//     audio.controls = true;
+//     audio.volume = 0.5;
+//     audio.autoplay = true;
+//     //playSound(abuffer);
+//     document.body.appendChild(audio);
+//     */
+
+//   var arraybuffer = bufferToWave(emptySegment, 0, emptySegment.length); //Will create a new Blob with
+//   return { copiedRegionBlob: arraybuffer, copiedRegionBuffer: emptySegment };
+// }
 
 export function bufferToWave(abuffer, offset, len) {
   var numOfChan = abuffer.numberOfChannels,
@@ -565,3 +589,40 @@ export function bufferToWave(abuffer, offset, len) {
 
 //   return new Uint8Array(buffer);
 // }
+
+function createBuffer(originalBuffer, duration) {
+  var sampleRate = originalBuffer.sampleRate;
+  var frameCount = duration * sampleRate;
+  var channels = originalBuffer.numberOfChannels;
+  return new AudioContext().createBuffer(channels, frameCount, sampleRate);
+}
+
+export function copyBuffer(wsBuffer, region, toStart = 0) {
+  const fromStart = region.start;
+  const fromEnd = region.end;
+  const fromBuffer = wsBuffer;
+  let toBuffer = createBuffer(wsBuffer, fromEnd - fromStart);
+  //--------------------
+  var sampleRate = fromBuffer.sampleRate;
+  var frameCount = (fromEnd - fromStart) * sampleRate;
+  for (var i = 0; i < fromBuffer.numberOfChannels; i++) {
+    var fromChanData = fromBuffer.getChannelData(i);
+    var toChanData = toBuffer.getChannelData(i);
+    for (
+      var j = 0,
+        f = Math.round(fromStart * sampleRate),
+        t = Math.round(toStart * sampleRate);
+      j < frameCount;
+      j++, f++, t++
+    ) {
+      toChanData[t] = fromChanData[f];
+    }
+  }
+
+  const copiedBlob = bufferToWave(toBuffer, 0, toBuffer.length);
+
+  return {
+    copiedRegionBlob: copiedBlob,
+    copiedRegionBuffer: toBuffer,
+  };
+}
