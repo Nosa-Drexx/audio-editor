@@ -586,11 +586,24 @@ export function bufferToWave(abuffer, offset, len) {
   return new Blob([test], { type: "audio/wav" });
 }
 
-export function applyEnvelopeToAudio(abuffer, wsDuration, envelopePoints) {
+export function cloneAudioBuffer(fromAudioBuffer) {
+  const audioBuffer = new AudioBuffer({
+    length: fromAudioBuffer.length,
+    numberOfChannels: fromAudioBuffer.numberOfChannels,
+    sampleRate: fromAudioBuffer.sampleRate,
+  });
+  for (let channelI = 0; channelI < audioBuffer.numberOfChannels; ++channelI) {
+    const samples = fromAudioBuffer.getChannelData(channelI);
+    audioBuffer.copyToChannel(samples, channelI);
+  }
+  return audioBuffer;
+}
+
+export function applyEnvelopeToAudio(wsBuffer, wsDuration, envelopePoints) {
   //The function loops through the audio length and generate volume for each position of the audio time depending on the evelope points passed in.
   //-------------
-  //this function takes alot of computational resource expectially for long audios might be wise to run in a web worker
-
+  //this function takes alot of computational resource expectially for long audios might be wise to run in a web worker or spin o a different thread
+  const abuffer = cloneAudioBuffer(wsBuffer);
   const totalDuration = wsDuration;
   const audioLength = abuffer.length;
   // const audioLength = 2000;
