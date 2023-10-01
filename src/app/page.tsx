@@ -5,12 +5,23 @@ import { createElement, useEffect, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 import Regions from "wavesurfer.js/dist/plugins/regions";
 import Envelope from "wavesurfer.js/dist/plugins/envelope";
-import { copy, copyBuffer, cut2, paste, removeRegion } from "src/utils/audioFn";
+import {
+  applyEnvelopeToAudio,
+  bufferToWave,
+  copy,
+  copyBuffer,
+  createBuffer,
+  cut2,
+  paste,
+  removeRegion,
+  replace,
+} from "src/utils/audioFn";
 // Create an instance of WaveSurfer
 
 // Loop a region on click
 var ws;
 var wsRegions;
+var envelope;
 
 // Give regions a random color when they are created
 const random = (min, max) => Math.random() * (max - min) + min;
@@ -24,6 +35,7 @@ export default function Home() {
   const [activeRegion, setActiveRegion] = useState(null);
   const [removedFromAudio, setRemovedFromAudio] = useState();
   const [cutEpisodes, setCutEpisodes] = useState([]);
+  const [copiedEpisodes, setCopiedEpisodes] = useState([]);
 
   useEffect(() => {
     if (waveForm.current) {
@@ -54,7 +66,7 @@ export default function Home() {
       const isMobile = top
         ? top.matchMedia("(max-width: 900px)").matches
         : true;
-      const envelope = ws.registerPlugin(
+      envelope = ws.registerPlugin(
         Envelope.create({
           volume: 0.8,
           lineColor: "rgba(255, 0, 0, 0.5)",
@@ -65,8 +77,8 @@ export default function Home() {
           dragPointStroke: "rgba(0, 0, 0, 0.5)",
 
           points: [
-            { time: 11.2, volume: 0.5 },
-            { time: 15.5, volume: 0.8 },
+            { time: 11.2, volume: 0 },
+            { time: 15.5, volume: 0.3 },
           ],
         })
       );
@@ -78,8 +90,8 @@ export default function Home() {
       // Create some regions at specific time ranges
 
       wsRegions.addRegion({
-        start: 80.45,
-        end: 134.45,
+        start: 0.45,
+        end: 10.45,
         content: "hwll",
         color: "rgba(220, 31, 244, 0.5)",
         drag: true,
@@ -183,27 +195,125 @@ export default function Home() {
   }
   function handleCopy(e) {
     if (activeRegion && ws) {
+      const audioContext = new (window.AudioContext ||
+        window.webkitAudioContext)();
+      const source = audioContext.createBufferSource();
+
+      source.buffer = ws.getDecodedData();
+      // Create a GainNode for the envelope effect
+      const gainNode = audioContext.createGain();
+
+      // Connect nodes to create the envelope effect
+      console.log(envelope, "envelope");
+
+      // Start playback
+      source.start();
+
+      console.log(ws.getDecodedData(), "wavesurfer");
+      console.log(ws.envelope, "wavesurfer envelope");
+      console.log(source, "source");
+      console.log(source.context, "source context");
+
       const copiedRegion = copyBuffer(ws.getDecodedData(), activeRegion);
+
+      // var offlineAudioContext = new OfflineAudioContext(
+      //   1,
+      //   2,
+      //   ws.getDecodedData().sampleRate
+      // );
+
+      // const envelope2 = offlineAudioContext.createGain();
+      // console.log(envelope2);
+      // console.log(envelope, "wavesurfer");
+      setCopiedEpisodes((prev) => [
+        ...prev,
+        {
+          copiedBuffer: copiedRegion.copiedRegionBuffer,
+          copiedBlob: copiedRegion.copiedRegionBlob,
+        },
+      ]);
+      const removedRegion = copiedRegion.copiedRegionBuffer;
+      // console.log(cutOutObj);
+      setRemovedFromAudio(removedRegion);
       // console.log(copiedRegion);
       // ws.loadBlob(copiedRegion);
     }
   }
-  function handlePaste(e) {
+  async function handlePaste(e) {
     if (activeRegion && ws) {
-      console.log(removedFromAudio);
-      const pasted = paste(
-        ws.getDecodedData(),
-        removedFromAudio,
-        activeRegion.start,
-        activeRegion.end
-      );
-      // console.log(pasted);
-      ws.loadBlob(pasted);
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "audio/*";
+
+      const WaveContainer = document.createElement("div");
+
+      const copiedWaves = WaveSurfer.create({
+        container: WaveContainer,
+        waveColor: "green",
+        progressColor: "black",
+      });
+
+      fileInput?.addEventListener("change", async (e) => {
+        const audioUploaded = fileInput.files["0"];
+
+        await copiedWaves.loadBlob(audioUploaded);
+
+        const pasted = paste(
+          ws.getDecodedData(),
+          copiedWaves.getDecodedData(),
+          activeRegion.start
+        );
+        ws.loadBlob(pasted);
+      });
+
+      fileInput?.click();
+    }
+  }
+  async function handleReplace(e) {
+    if (activeRegion && ws) {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "audio/*";
+
+      const WaveContainer = document.createElement("div");
+
+      const copiedWaves = WaveSurfer.create({
+        container: WaveContainer,
+        waveColor: "green",
+        progressColor: "black",
+      });
+
+      fileInput?.addEventListener("change", async (e) => {
+        const audioUploaded = fileInput.files["0"];
+
+        await copiedWaves.loadBlob(audioUploaded);
+
+        const replaced = replace(
+          ws.getDecodedData(),
+          copiedWaves.getDecodedData(),
+          activeRegion,
+          activeRegion.start,
+          activeRegion.end
+        );
+        ws.loadBlob(replaced);
+      });
+
+      fileInput?.click();
     }
   }
 
+  function removeAllChildNodes(parent) {
+    while (parent.firstChild) {
+      parent.removeChild(parent.firstChild);
+    }
+  }
+
+  //To show Cut out Clips
   useEffect(() => {
-    cutEpisodes.map((episodesObj, index) => {
+    const cutWaveContainer = document.querySelector(`.wave-container`);
+
+    removeAllChildNodes(cutWaveContainer); //prevent duplicates of cut wave on conainer
+    cutEpisodes.forEach((episodesObj, index) => {
       if (cutEpisodes.length > 0) {
         const WaveContainer = document.createElement("div");
         const cutWaves = WaveSurfer.create({
@@ -211,13 +321,105 @@ export default function Home() {
           waveColor: "rgb(200, 0, 200)",
           progressColor: "rgb(100, 0, 100)",
         });
+        const cutControls = document.createElement("div");
+        const url = URL.createObjectURL(episodesObj.cutBlob);
+
+        const a = document.createElement("a");
+
+        a.href = url;
+        a.download = `JMT-CUT-${index}`;
+
+        const playPauseBtn = document.createElement("button");
+        const downloadBtn = document.createElement("button");
+        playPauseBtn.innerHTML = "play/pause";
+        downloadBtn.innerHTML = "download";
+
+        playPauseBtn.addEventListener("click", () => {
+          cutWaves.playPause();
+        });
+        downloadBtn.addEventListener("click", () => {
+          a.click();
+        });
+
+        cutControls.appendChild(playPauseBtn);
+        cutControls.appendChild(downloadBtn);
+
+        WaveContainer.appendChild(cutControls);
 
         cutWaves.loadBlob(episodesObj.cutBlob);
 
-        document.querySelector(`.wave-container`)?.appendChild(WaveContainer);
+        cutWaveContainer?.appendChild(WaveContainer);
       }
     });
   }, [cutEpisodes]);
+
+  //To show copied out Clips
+  useEffect(() => {
+    const copyWaveContainer = document.querySelector(`.wave-container-copy`);
+
+    removeAllChildNodes(copyWaveContainer); //prevent duplicates of cut wave on conainer
+    copiedEpisodes.forEach((episodesObj, index) => {
+      if (copiedEpisodes.length > 0) {
+        const WaveContainer = document.createElement("div");
+        const copiedWaves = WaveSurfer.create({
+          container: WaveContainer,
+          waveColor: "rgb(200, 0, 200)",
+          progressColor: "rgb(100, 0, 100)",
+        });
+        const copyControls = document.createElement("div");
+        const url = URL.createObjectURL(episodesObj.copiedBlob);
+
+        const a = document.createElement("a");
+
+        a.href = url;
+        a.download = `JMT-COPIED-${index}`;
+
+        const playPauseBtn = document.createElement("button");
+        const downloadBtn = document.createElement("button");
+        playPauseBtn.innerHTML = "play/pause";
+        downloadBtn.innerHTML = "download";
+
+        playPauseBtn.addEventListener("click", () => {
+          copiedWaves.playPause();
+        });
+        downloadBtn.addEventListener("click", () => {
+          a.click();
+        });
+
+        copyControls.appendChild(playPauseBtn);
+        copyControls.appendChild(downloadBtn);
+
+        WaveContainer.appendChild(copyControls);
+
+        copiedWaves.loadBlob(episodesObj.copiedBlob);
+
+        copyWaveContainer?.appendChild(WaveContainer);
+      }
+    });
+  }, [copiedEpisodes]);
+
+  const downloadAudio = () => {
+    // const url = URL.createObjectURL(bufferToWave(ws.getDecodedData()));
+
+    // const a = document.createElement("a");
+
+    // a.href = url;
+    // a.download = `Nosatest-${"download"}`;
+
+    const value = applyEnvelopeToAudio(
+      ws.getDecodedData(),
+      ws.getDuration(),
+      envelope.getPoints()
+    );
+
+    const url = URL.createObjectURL(value);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = `with-envelope-${"download"}`;
+    a.click();
+  };
 
   useEffect(() => {
     console.log(activeRegion, "trial-active-reaion");
@@ -250,10 +452,18 @@ export default function Home() {
       <button onClick={handleDelete}>Delete Region</button>
       <button onClick={handleCopy}>Copy Region</button>
       <button onClick={handlePaste}>Paste</button>
+      <button onClick={handleReplace}>Replace</button>
+      <button onClick={downloadAudio}>Download</button>
 
       <div>
         <h1>Cut Episodes</h1>
         <div className="wave-container"></div>
+      </div>
+
+      {/* List For Copied Episodes */}
+      <div>
+        <h1>Copied Episodes</h1>
+        <div className="wave-container-copy"></div>
       </div>
     </div>
   );

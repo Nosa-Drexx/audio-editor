@@ -109,3 +109,14 @@ a {
 ::part(envelope) {
   z-index: 2 !important;
 }
+
+.wave-container {
+  display: flex;
+  flex-flow: row wrap;
+  gap: 2rem;
+}
+.wave-container-copy {
+  display: flex;
+  flex-flow: row wrap;
+  gap: 2rem;
+}
