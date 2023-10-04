@@ -45,7 +45,10 @@ export default function Home() {
         progressColor: "rgb(100, 0, 100)",
       });
 
-      fetch("/assets/audio/test-entry-voice.wav").then(async (response) => {
+      // "/assets/audio/african-queen-the-paintress-empire-ft-elizabeth-louis (1).mp3"
+      fetch(
+        "/assets/audio/african-queen-the-paintress-empire-ft-elizabeth-louis (1).mp3"
+      ).then(async (response) => {
         if (!response.ok) {
           throw new Error(`HTTP error, status = ${response.status}`);
         }
@@ -88,10 +91,9 @@ export default function Home() {
       // const isMobile = top.matchMedia('(max-width: 900px)').matches
 
       // Create some regions at specific time ranges
-
       wsRegions.addRegion({
         start: 0.45,
-        end: 10.45,
+        end: Math.min(10),
         content: "hwll",
         color: "rgba(220, 31, 244, 0.5)",
         drag: true,
@@ -195,36 +197,8 @@ export default function Home() {
   }
   function handleCopy(e) {
     if (activeRegion && ws) {
-      const audioContext = new (window.AudioContext ||
-        window.webkitAudioContext)();
-      const source = audioContext.createBufferSource();
-
-      source.buffer = ws.getDecodedData();
-      // Create a GainNode for the envelope effect
-      const gainNode = audioContext.createGain();
-
-      // Connect nodes to create the envelope effect
-      console.log(envelope, "envelope");
-
-      // Start playback
-      source.start();
-
-      console.log(ws.getDecodedData(), "wavesurfer");
-      console.log(ws.envelope, "wavesurfer envelope");
-      console.log(source, "source");
-      console.log(source.context, "source context");
-
       const copiedRegion = copyBuffer(ws.getDecodedData(), activeRegion);
 
-      // var offlineAudioContext = new OfflineAudioContext(
-      //   1,
-      //   2,
-      //   ws.getDecodedData().sampleRate
-      // );
-
-      // const envelope2 = offlineAudioContext.createGain();
-      // console.log(envelope2);
-      // console.log(envelope, "wavesurfer");
       setCopiedEpisodes((prev) => [
         ...prev,
         {
@@ -399,30 +373,25 @@ export default function Home() {
   }, [copiedEpisodes]);
 
   const downloadAudio = () => {
-    // const url = URL.createObjectURL(bufferToWave(ws.getDecodedData()));
+    if (ws && envelope) {
+      const value = applyEnvelopeToAudio(
+        ws.getDecodedData(),
+        ws.getDuration(),
+        envelope.getPoints()
+      );
 
-    // const a = document.createElement("a");
+      const url = URL.createObjectURL(value);
 
-    // a.href = url;
-    // a.download = `Nosatest-${"download"}`;
+      const a = document.createElement("a");
 
-    const value = applyEnvelopeToAudio(
-      ws.getDecodedData(),
-      ws.getDuration(),
-      envelope.getPoints()
-    );
-
-    const url = URL.createObjectURL(value);
-
-    const a = document.createElement("a");
-
-    a.href = url;
-    a.download = `JMT-audio-${"download"}`;
-    a.click();
+      a.href = url;
+      a.download = `JMT-audio-${"download"}`;
+      a.click();
+    }
   };
 
   useEffect(() => {
-    console.log(activeRegion, "trial-active-reaion");
+    // console.log(activeRegion, "trial-active-reaion");
   }, [activeRegion]);
 
   return (

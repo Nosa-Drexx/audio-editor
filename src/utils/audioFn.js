@@ -1,5 +1,16 @@
+"use client";
 var createBufferNew = require("audio-buffer-from");
 var toWav = require("audiobuffer-to-wav");
+const audioEncoder = require("audio-encoder");
+var lamejs = require("lamejs");
+
+import MPEGMode from "lamejs/src/js/MPEGMode";
+import Lame from "lamejs/src/js/Lame";
+import BitStream from "lamejs/src/js/BitStream";
+
+window.MPEGMode = MPEGMode;
+window.Lame = Lame;
+window.BitStream = BitStream;
 
 export function paste(buffer, cutSelection, position, length) {
   var originalAudioBuffer = buffer;
@@ -403,7 +414,8 @@ This function removes the selected region with leaving any empty space
   var newAudioBuffer = offlineAudioContext.createBuffer(
     originalAudioBuffer.numberOfChannels,
     // start === 0?
-    originalAudioBuffer.length - emptySegment.length,
+    // originalAudioBuffer.length - emptySegment.length,
+    originalAudioBuffer.length,
     // : originalAudioBuffer.length,
     originalAudioBuffer.sampleRate
   );
@@ -615,7 +627,7 @@ export function applyEnvelopeToAudio(wsBuffer, wsDuration, envelopePoints) {
   var X_final; // reference graadient final volume
   var gradient; // gradient obtained from x_initial, x_final, y_initial, y_final
 
-  console.log(envelopePoints);
+  // console.log(envelopePoints);
   // console.log(abuffer.getChannelData(2));
   for (let i = 0; i < audioLength; i++) {
     const time = (i / audioLength) * totalDuration;
@@ -628,7 +640,7 @@ export function applyEnvelopeToAudio(wsBuffer, wsDuration, envelopePoints) {
       X_initial,
       Y_initial,
       totalDuration
-    );
+    ); //this the main function that provide the details for the calculation fo the related volumes and time (y, x)
     X_initial = newValues.X_initial;
     X_final = newValues.X_final;
     Y_final = newValues.Y_final;
@@ -642,7 +654,7 @@ export function applyEnvelopeToAudio(wsBuffer, wsDuration, envelopePoints) {
     // console.log(newVolumesForAudio);
   }
 
-  console.log("round 2");
+  // console.log("round 2");
   //Mutate audio float data to change audio volume
   for (let i = 0; i < numberOfChannels; i++) {
     const channel = abuffer.getChannelData(i);
@@ -651,7 +663,8 @@ export function applyEnvelopeToAudio(wsBuffer, wsDuration, envelopePoints) {
       channel[i] *= newVolumesForAudio[i];
     }
   }
-  console.log("finished");
+  // console.log("finished");
+  // console.log(newVolumesForAudio);
   return bufferToWave(abuffer);
 }
 
@@ -666,6 +679,7 @@ function generateGraphPoints(
 ) {
   for (let i = 0; i < envelopePoints.length; i++) {
     if (Math.floor(currentTime) < Math.floor(envelopePoints[i].time)) {
+      // console.log("less than");
       X_final = envelopePoints[i].time;
       Y_final = envelopePoints[i].volume;
       X_initial = X_initial;
@@ -677,7 +691,7 @@ function generateGraphPoints(
         Y_initial,
       };
     } else if (Math.floor(currentTime) === Math.floor(envelopePoints[i].time)) {
-      // console.log("hi");
+      // console.log("equal to with more");
       if (envelopePoints[i + 1]) {
         X_initial = envelopePoints[i].time;
         Y_initial = envelopePoints[i].volume;
@@ -691,7 +705,8 @@ function generateGraphPoints(
           Y_initial,
         };
       } else {
-        // console.log("me");
+        //When i is currently the last point data in the envelope array apply a fade out effect
+        // console.log("equal to without more");
         X_initial = envelopePoints[i].time;
         Y_initial = envelopePoints[i].volume;
 
@@ -841,10 +856,231 @@ export function copyBuffer(wsBuffer, region, toStart = 0) {
     }
   }
 
-  const copiedBlob = bufferToWave(toBuffer, 0, toBuffer.length);
+  // const copiedBlob = bufferToWave(toBuffer, 0, toBuffer.length);
+  // const copiedBlob = AudioEncoderLame(toBuffer);
+  const copiedBlob = audioBufferToWav2(toBuffer);
+  // audioEncoder(toBuffer, "WAV", null, function onComplete(blob) {
+  //   console.log(blob);
+  // });
+  // // Convert the AudioBuffer to ArrayBuffer
+  // let test;
+  // new Promise((resolove) => {
+  //   resolove("hi");
+  // }).then((e) => {
+  //   test = e;
+  //   console.log(e);
+  // });
+  // console.log(test);
+  // console.log(copiedBlob);
 
   return {
     copiedRegionBlob: copiedBlob,
     copiedRegionBuffer: toBuffer,
   };
+}
+
+// Create an ArrayBuffer
+function audioBufferToBuffer(audioBuffer) {
+  const numChannels = audioBuffer.numberOfChannels;
+  const length = audioBuffer.length;
+  const sampleRate = audioBuffer.sampleRate;
+
+  // Create a new Float32Array to hold the audio data
+  const interleaved = new Float32Array(length * numChannels);
+
+  // Interleave the audio data from the AudioBuffer
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = audioBuffer.getChannelData(channel);
+    for (let i = 0; i < length; i++) {
+      interleaved[i * numChannels + channel] = channelData[i];
+    }
+  }
+
+  // Create an ArrayBuffer to store the interleaved data
+  const buffer = new ArrayBuffer(interleaved.length * 4); // 4 bytes per float32
+
+  // Create a DataView to work with the ArrayBuffer
+  const view = new DataView(buffer);
+
+  // Fill the ArrayBuffer with the interleaved audio data
+  interleaved.forEach((sample, index) => {
+    view.setFloat32(index * 4, sample, true); // true for little-endian
+  });
+
+  return buffer;
+}
+// function audioBufferToWav2(aBuffer) {
+//   let numOfChan = aBuffer.numberOfChannels,
+//     btwLength = aBuffer.length * numOfChan * 2 + 44,
+//     btwArrBuff = new ArrayBuffer(btwLength),
+//     btwView = new DataView(btwArrBuff),
+//     btwChnls = [],
+//     btwIndex,
+//     btwSample,
+//     btwOffset = 0,
+//     btwPos = 0;
+//   setUint32(0x46464952); // "RIFF"
+//   setUint32(btwLength - 8); // file length - 8
+//   setUint32(0x45564157); // "WAVE"
+//   setUint32(0x20746d66); // "fmt " chunk
+//   setUint32(16); // length = 16
+//   setUint16(1); // PCM (uncompressed)
+//   setUint16(numOfChan);
+//   setUint32(aBuffer.sampleRate);
+//   setUint32(aBuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+//   setUint16(numOfChan * 2); // block-align
+//   setUint16(16); // 16-bit
+//   setUint32(0x61746164); // "data" - chunk
+//   setUint32(btwLength - btwPos - 4); // chunk length
+//   for (btwIndex = 0; btwIndex < aBuffer.numberOfChannels; btwIndex++)
+//     btwChnls.push(aBuffer.getChannelData(btwIndex));
+//   while (btwPos < btwLength) {
+//     for (btwIndex = 0; btwIndex < numOfChan; btwIndex++) {
+//       // interleave btwChnls
+//       btwSample = Math.max(-1, Math.min(1, btwChnls[btwIndex][btwOffset])); // clamp
+//       btwSample =
+//         (0.5 + btwSample < 0 ? btwSample * 32768 : btwSample * 32767) | 0; // scale to 16-bit signed int
+//       btwView.setInt16(btwPos, btwSample, true); // write 16-bit sample
+//       btwPos += 2;
+//     }
+//     btwOffset++; // next source sample
+//   }
+//   let wavHdr = lamejs.WavHeader.readHeader(new DataView(btwArrBuff));
+//   let wavSamples = new Int16Array(
+//     btwArrBuff,
+//     wavHdr.dataOffset,
+//     wavHdr.dataLen / 2
+//   );
+//   return wavToMp3(
+//     wavHdr.channels,
+//     wavHdr.sampleRate,
+//     wavSamples,
+//   );
+//   function setUint16(data) {
+//     btwView.setUint16(btwPos, data, true);
+//     btwPos += 2;
+//   }
+//   function setUint32(data) {
+//     btwView.setUint32(btwPos, data, true);
+//     btwPos += 4;
+//   }
+// }
+
+// function wavToMp3(channels, sampleRate, samples, length) {
+//   var buffer = [];
+//   var mp3enc = new lamejs.Mp3Encoder(channels, sampleRate, 128);
+//   var remaining = length;
+//   var samplesPerFrame = 1152;
+//   for (var i = 0; remaining >= samplesPerFrame; i += samplesPerFrame) {
+//     var mono = samples.subarray(i, i + samplesPerFrame);
+//     var mp3buf = mp3enc.encodeBuffer(mono);
+//     if (mp3buf.length > 0) {
+//       buffer.push(new Int8Array(mp3buf));
+//     }
+//     remaining -= samplesPerFrame;
+//   }
+//   var d = mp3enc.flush();
+//   if (d.length > 0) {
+//     buffer.push(new Int8Array(d));
+//   }
+//   var mp3Blob = new Blob(buffer, { type: "audio/mp3" });
+//   return mp3Blob;
+//   var bUrl = window.URL.createObjectURL(mp3Blob);
+//   // send the download link to the console
+//   console.log("mp3 download:", bUrl);
+// }
+
+function audioBufferToWav2(aBuffer, AudioFormat = "WAV") {
+  let numOfChan = aBuffer.numberOfChannels,
+    btwLength = aBuffer.length * numOfChan * 2 + 44,
+    btwArrBuff = new ArrayBuffer(btwLength),
+    btwView = new DataView(btwArrBuff),
+    btwChnls = [],
+    btwIndex,
+    btwSample,
+    btwOffset = 0,
+    btwPos = 0;
+  setUint32(0x46464952); // "RIFF"
+  setUint32(btwLength - 8); // file length - 8
+  setUint32(0x45564157); // "WAVE"
+  setUint32(0x20746d66); // "fmt " chunk
+  setUint32(16); // length = 16
+  setUint16(1); // PCM (uncompressed)
+  setUint16(numOfChan);
+  setUint32(aBuffer.sampleRate);
+  setUint32(aBuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
+  setUint16(numOfChan * 2); // block-align
+  setUint16(16); // 16-bit
+  setUint32(0x61746164); // "data" - chunk
+  setUint32(btwLength - btwPos - 4); // chunk length
+  for (btwIndex = 0; btwIndex < aBuffer.numberOfChannels; btwIndex++)
+    btwChnls.push(aBuffer.getChannelData(btwIndex));
+  while (btwPos < btwLength) {
+    for (btwIndex = 0; btwIndex < numOfChan; btwIndex++) {
+      // interleave btwChnls
+      btwSample = Math.max(-1, Math.min(1, btwChnls[btwIndex][btwOffset])); // clamp
+      btwSample =
+        (0.5 + btwSample < 0 ? btwSample * 32768 : btwSample * 32767) | 0; // scale to 16-bit signed int
+      btwView.setInt16(btwPos, btwSample, true); // write 16-bit sample
+      btwPos += 2;
+    }
+    btwOffset++; // next source sample
+  }
+  let wavHdr = lamejs.WavHeader.readHeader(new DataView(btwArrBuff));
+  //Stereo
+  let data = new Int16Array(btwArrBuff, wavHdr.dataOffset, wavHdr.dataLen / 2);
+  let leftData = [];
+  let rightData = [];
+  for (let i = 0; i < data.length; i += 2) {
+    leftData.push(data[i]);
+    rightData.push(data[i + 1]);
+  }
+  var left = new Int16Array(leftData);
+  var right = new Int16Array(rightData);
+  console.log("done");
+  if (AudioFormat === "MP3") {
+    //STEREO
+    if (wavHdr.channels === 2)
+      return wavToMp3(wavHdr.channels, wavHdr.sampleRate, left, right);
+    //MONO
+    else if (wavHdr.channels === 1)
+      return wavToMp3(wavHdr.channels, wavHdr.sampleRate, data);
+  } else return new Blob([btwArrBuff], { type: "audio/wav" });
+  function setUint16(data) {
+    btwView.setUint16(btwPos, data, true);
+    btwPos += 2;
+  }
+  function setUint32(data) {
+    btwView.setUint32(btwPos, data, true);
+    btwPos += 4;
+  }
+}
+function wavToMp3(channels, sampleRate, left, right = null) {
+  var buffer = [];
+  var mp3enc = new lamejs.Mp3Encoder(channels, sampleRate, 128);
+  var remaining = left.length;
+  var samplesPerFrame = 1152;
+  for (var i = 0; remaining >= samplesPerFrame; i += samplesPerFrame) {
+    if (!right) {
+      var mono = left.subarray(i, i + samplesPerFrame);
+      var mp3buf = mp3enc.encodeBuffer(mono);
+    } else {
+      var leftChunk = left.subarray(i, i + samplesPerFrame);
+      var rightChunk = right.subarray(i, i + samplesPerFrame);
+      var mp3buf = mp3enc.encodeBuffer(leftChunk, rightChunk);
+    }
+    if (mp3buf.length > 0) {
+      buffer.push(mp3buf); //new Int8Array(mp3buf));
+    }
+    remaining -= samplesPerFrame;
+  }
+  var d = mp3enc.flush();
+  if (d.length > 0) {
+    buffer.push(new Int8Array(d));
+  }
+  var mp3Blob = new Blob(buffer, { type: "audio/mp3" });
+  //var bUrl = window.URL.createObjectURL(mp3Blob);
+  // send the download link to the console
+  //console.log('mp3 download:', bUrl);
+  return mp3Blob;
 }
